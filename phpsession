@@ -1,0 +1,80 @@
+#!/usr/bin/env php
+<?php 
+
+declare(strict_types=1);
+
+$options = getopt(
+    "m::h", 
+    [
+        "mode::",
+        "help",
+    ],
+);
+
+if (isset($options['help']) || isset($options['h'])) {
+    echo "phpsession [-m|--mode] [-h|--help]\n\n";
+    echo "Reads serialised session data from standart input and shows it to console\n\n";
+    echo "Options:\n";
+    echo "-m|-mode: Mode of unserialisation \"plain\" or \"binary\"\n";
+    exit(0);
+} 
+
+$mode = $options['mode'] ?? $options['m'] ?? 'plain';
+$std=fopen("php://stdin","r");
+$input = stream_get_contents($std);
+fclose($std);
+
+if (empty($input)) {
+    echo "No input specified";
+    exit;
+}
+
+var_dump(
+    Session::unserialize(trim(trim($input), "'"), (bool) ($argv[1] ?? false))
+);
+
+class Session {
+    public static function unserialize($session_data, bool $binary = false) {
+        switch ($binary) {
+            case false:
+                return self::unserialize_php($session_data);
+                break;
+            case true:
+                return self::unserialize_phpbinary($session_data);
+                break;
+        }
+    }
+
+    private static function unserialize_php($session_data) {
+        $return_data = array();
+        $offset = 0;
+        while ($offset < strlen($session_data)) {
+            if (!strstr(substr($session_data, $offset), "|")) {
+                throw new Exception("invalid data, remaining: " . substr($session_data, $offset));
+            }
+            $pos = strpos($session_data, "|", $offset);
+            $num = $pos - $offset;
+            $varname = substr($session_data, $offset, $num);
+            $offset += $num + 1;
+            $data = unserialize(substr($session_data, $offset));
+            $return_data[$varname] = $data;
+            $offset += strlen(serialize($data));
+        }
+        return $return_data;
+    }
+
+    private static function unserialize_phpbinary($session_data) {
+        $return_data = array();
+        $offset = 0;
+        while ($offset < strlen($session_data)) {
+            $num = ord($session_data[$offset]);
+            $offset += 1;
+            $varname = substr($session_data, $offset, $num);
+            $offset += $num;
+            $data = unserialize(substr($session_data, $offset));
+            $return_data[$varname] = $data;
+            $offset += strlen(serialize($data));
+        }
+        return $return_data;
+    }
+}

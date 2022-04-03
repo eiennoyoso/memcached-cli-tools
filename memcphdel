@@ -1,0 +1,41 @@
+#!/bin/env php
+<?php
+
+$options = getopt(
+    "s::kh", 
+    [
+        "servers::",
+        "key",
+        "help"
+    ],
+);
+
+if (isset($options['help']) || isset($options['h'])) {
+    echo "memcphdel [-s|--servers] <-k|--key> [-h|--help]";
+    exit;
+} 
+
+$serverString = $options['servers'] ?? $options['s'] ?? getenv('MEMCACHED_SERVERS') ?: 'localhost';
+$key = $options['key'] ?? $options['k'] ?? null;
+
+if (empty($key)) {
+    die('Please specify key in <-k|-key> option');
+}
+
+$hostPortPairs = array_map('trim', explode(',', $serverString));
+foreach ($hostPortPairs as $i => $hostPortPair) {
+    [$host, $port] = array_map('trim', explode(':', $hostPortPair)) + ['localhost', 11211];
+    if (empty($port)) {
+        $port = 11211;
+    }
+
+    $hostPortPairs[$i] = ['host' => $host, 'port' => $port];
+}
+
+
+$m = new Memcache();
+foreach ($hostPortPairs as $hostPortPair) {
+    $m->addServer($hostPortPair['host'], $hostPortPair['port'], true, 1, 5);
+}
+
+$m->delete($key);

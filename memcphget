@@ -1,0 +1,59 @@
+#!/bin/env php
+<?php
+
+$options = getopt(
+    "s::k::d::ah", 
+    [
+        "servers::",
+        "key",
+        "driver::",
+        "as-is",
+        "help"
+    ],
+);
+
+if (isset($options['help']) || isset($options['h'])) {
+    echo "memcphget [-s|--servers] [-k|--key] [-a|--as-is] [-d|--driver] [-h|--help]";
+    exit;
+} 
+
+$serverString = $options['servers'] ?? $options['s'] ?? getenv('MEMCACHED_SERVERS') ?: 'localhost';
+$key = $options['key'] ?? $options['k'] ?? null;
+$asIs = $options['as-is'] ?? $options['a'] ?? true;
+$driver = $options['driver'] ?? $options['d'] ?? 'memcache';
+
+$hostPortPairs = array_map('trim', explode(',', $serverString));
+foreach ($hostPortPairs as $i => $hostPortPair) {
+    [$host, $port] = array_map('trim', explode(':', $hostPortPair)) + ['localhost', 11211];
+    if (empty($port)) {
+        $port = 11211;
+    }
+
+    $hostPortPairs[$i] = ['host' => $host, 'port' => $port];
+}
+
+
+if ($driver === 'memcache') {
+    $m = new Memcache();
+    foreach ($hostPortPairs as $hostPortPair) {
+        $m->addServer($hostPortPair['host'], $hostPortPair['port'], true, 1, 5);
+    }
+} else {
+    $m = new Memcached();
+    foreach ($hostPortPairs as $hostPortPair) {
+        $m->addServer($hostPortPair['host'], $hostPortPair['port']);
+    }
+}
+
+$v = $m->get($key);
+
+if ($asIs) {
+    if (is_string($v)) {
+        echo $v;
+    } else {
+        var_export($v);
+    }
+} else {
+    var_export($v);
+}
+

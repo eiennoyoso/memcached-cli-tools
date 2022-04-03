@@ -1,0 +1,50 @@
+#!/usr/bin/env python3
+#-- coding: utf8 --
+
+import pickle5
+from pymemcache.client.hash import HashClient
+import argparse
+import os
+
+argparser = argparse.ArgumentParser(prog="memcpyset")
+argparser.add_argument(
+    'key', 
+    help='Memcached key'
+)
+argparser.add_argument(
+    'value', 
+    help='Memcached value'
+)
+argparser.add_argument(
+    '--pickle', 
+    action='store_true',
+    help="Pack data by pickle"
+)
+argparser.add_argument(
+    '--servers',
+    help="Server list, comma delimited. If omited, env MEMCACHED_SERVER used"
+)
+args = argparser.parse_args()
+
+servers = args.servers or os.environ['MEMCACHED_SERVER']
+if not servers:
+    print("Server list not specified")
+    os._exit()
+
+memcached_addr_list = []
+for server in servers.split(","):
+    memcached_host_port = server.rstrip().split(":")
+    
+    if len(memcached_host_port) == 1:
+        memcached_host_port.append("11211");
+    
+    memcached_addr_list.append(memcached_host_port[0] + ":" + memcached_host_port[1])
+        
+client = HashClient(memcached_addr_list)
+
+val = args.value
+
+if args.pickle:
+    val = pickle5.dumps(val)
+
+print(client.set(args.key, val))

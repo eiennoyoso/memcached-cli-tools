@@ -1,0 +1,115 @@
+#!/bin/env php
+<?php
+
+$options = getopt(
+    "s::k::v::ad::h", 
+    [
+        "servers::",
+        "keys-only::",
+        "key-pattern::",
+        "value-pattern::",
+        "active-only",
+        "driver::",
+        "help"
+    ],
+);
+
+if (isset($options['help']) || isset($options['h'])) {
+    echo "memcphfind [-s|--servers] [-k|--key-pattern] [-v|--value-pattern] [--keys-only] [-a|--active-only] [-d|--driver] [-h|--help]";
+    exit;
+} 
+
+$serverString = $options['servers'] ?? $options['s'] ?? getenv('MEMCACHED_SERVERS') ?: 'localhost';
+$keyPattern = $options['key-pattern'] ?? $options['k'] ?? null;
+$valuePattern = $options['value-pattern'] ?? $options['v'] ?? null;
+$activeOnly = $options['active-only'] ?? $options['a'] ?? true;
+$driver = $options['driver'] ?? $options['d'] ?? 'memcache';
+
+$hostPortPairs = array_map('trim', explode(',', $serverString));
+foreach ($hostPortPairs as $i => $hostPortPair) {
+    [$host, $port] = array_map('trim', explode(':', $hostPortPair)) + ['localhost', 11211];
+    if (empty($port)) {
+        $port = 11211;
+    }
+
+    $hostPortPairs[$i] = ['host' => $host, 'port' => $port];
+}
+
+// get keys client
+$keys = [];
+$keysClient = new Memcache();
+
+foreach ($hostPortPairs as $hostPortPair) {
+    $keysClient->addServer($hostPortPair['host'], $hostPortPair['port'], true, 1, 5);
+}
+
+
+// search values client
+if ($driver == 'memcached') {
+    $readValueClient = new Memcached();
+    foreach ($hostPortPairs as $hostPortPair) {
+        $readValueClient->addServer($hostPortPair['host'], $hostPortPair['port'], true, 1, 5);
+    }
+} else {
+    $readValueClient = $keysClient;
+}
+
+// find keys
+foreach (array_keys(current($keysClient->getExtendedStats('slabs') ?: [])) as $slabId) {
+    $dump = current(@$keysClient->getExtendedStats('cachedump', (int)$slabId) ?: []);
+    if (empty($dump) || !empty($dump['CLIENT_ERROR' . "\0"])) {
+        continue;
+    }
+
+    if ($activeOnly) {
+        $time = time();
+        $dump = array_filter(
+            $dump, 
+            function (array $meta) use ($time) {
+                return $meta[1] === "0" || (int)($meta[1]) > $time;
+            }
+        );
+    }
+
+    $keys = array_keys($dump);
+
+    if ($keyPattern) {
+        $dump = array_filter(
+            $dump, 
+            function($key) use ($keyPattern) {
+                return mb_strpos($key, $keyPattern) !== false;
+            },
+            ARRAY_FILTER_USE_KEY
+        );
+    }
+
+    if ($valuePattern) {
+        $dump = array_filter(
+            $dump, 
+            function($key) use ($readValueClient, $valuePattern) {
+                $value = @$readValueClient->get($key);
+                if (empty($value)) {
+                    return false;
+                }
+
+                return mb_strpos(json_encode($value), $valuePattern) !== false;
+            },
+            ARRAY_FILTER_USE_KEY
+        );
+    }
+
+    // sort by key
+    ksort($dump);
+
+    if (isset($options['keys-only'])) {
+        foreach ($dump as $key => $meta) {
+            echo $key . PHP_EOL;
+        }
+    } else {
+        foreach ($dump as $key => $meta) {
+            echo sprintf("%s\t%s\t%s\n", $meta[0], date('Y-m-d H:i:s', $meta[1]), $key);
+        }
+    }
+    
+}
+
