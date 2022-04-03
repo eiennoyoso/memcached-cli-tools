@@ -38,9 +38,56 @@ memcphget [-s|--servers] [-k|--key] [-a|--as-is] [-d|--driver] [-h|--help]
 memcphget [-s|--servers] [-k|--key] [-v|--value] [-h|--help] 
 ```
 
-### Delet key by PHP client
+### Delete key by PHP client
 
 ```
 memcphdel [-s|--servers] <-k|--key> [-h|--help]
+```
+
+### Get key by Python client
+
+```
+usage: memcmyget [-h] [--pickle] [--utf8] [--servers SERVERS] key
+
+positional arguments:
+  key                Memcached key
+
+optional arguments:
+  -h, --help         show this help message and exit
+  --pickle           Unpack data by pickle
+  --utf8             Unpack binary response as UTF-8
+  --servers SERVERS  Server list, comma delimited. If omited, env MEMCACHED_SERVER used
+```
+
+### Set key pu Python client
+
+```
+usage: memcpyset [-h] [--pickle] [--servers SERVERS] key value
+
+positional arguments:
+  key                Memcached key
+  value              Memcached value
+
+optional arguments:
+  -h, --help         show this help message and exit
+  --pickle           Pack data by pickle
+  --servers SERVERS  Server list, comma delimited. If omited, env MEMCACHED_SERVER used
+```
+
+### Parse PHP session
+
+```
+phpsession [-m|--mode] [-h|--help]
+
+Reads serialised session data from standart input and shows it to console
+
+Options:
+-m|-mode: Mode of unserialisation "plain" (default) or "binary"
+```
+
+Useage:
+
+```
+memcphget "ses.1234567" | phpsession -m="binary"
 ```
 
