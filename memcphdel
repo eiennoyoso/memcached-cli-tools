@@ -2,10 +2,10 @@
 <?php
 
 $options = getopt(
-    "s::kh", 
+    "s::k:h", 
     [
         "servers::",
-        "key",
+        "key:",
         "help"
     ],
 );

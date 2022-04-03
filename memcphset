@@ -12,7 +12,7 @@ $options = getopt(
 );
 
 if (isset($options['help']) || isset($options['h'])) {
-    echo "memcphget [-s|--servers] [-k|--key] [-v|--value] [-h|--help]";
+    echo "memcphget [-s|--servers] <-k|--key> <-v|--value> [-h|--help]";
     exit;
 } 
 
