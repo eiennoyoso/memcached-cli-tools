@@ -22,11 +22,11 @@ argparser.add_argument(
 )
 argparser.add_argument(
     '--servers',
-    help="Server list, comma delimited. If omited, env MEMCACHED_SERVER used"
+    help="Server list, comma delimited. If omited, env MEMCACHED_SERVERS used"
 )
 args = argparser.parse_args()
 
-servers = args.servers or os.environ['MEMCACHED_SERVER']
+servers = args.servers or os.environ['MEMCACHED_SERVERS']
 if not servers:
     print("Server list not specified")
     os._exit()
