@@ -55,6 +55,11 @@ if ($driver == 'memcached') {
 }
 
 // find keys
+$slabs = $keysClient->getExtendedStats('slabs');
+if (empty($slabs)) {
+    die('Can not fetch slabs data');
+}
+
 foreach (array_keys(current($keysClient->getExtendedStats('slabs') ?: [])) as $slabId) {
     $dump = current(@$keysClient->getExtendedStats('cachedump', (int)$slabId, 0) ?: []);
     if (empty($dump) || !empty($dump['CLIENT_ERROR' . "\0"])) {
