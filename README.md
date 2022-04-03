@@ -59,7 +59,7 @@ optional arguments:
   --servers SERVERS  Server list, comma delimited. If omited, env MEMCACHED_SERVER used
 ```
 
-### Set key pu Python client
+### Set key by Python client
 
 ```
 usage: memcpyset [-h] [--pickle] [--servers SERVERS] key value
