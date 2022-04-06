@@ -3,6 +3,7 @@
 ## Installation
 
 ```
+apt get install php php-memcache php-memcached
 git clone https://github.com/eiennoyoso/memcached-cli-tools
 
 # Copy to ~/bin
