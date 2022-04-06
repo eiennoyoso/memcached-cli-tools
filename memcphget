@@ -2,24 +2,24 @@
 <?php
 
 $options = getopt(
-    "s::k:d::ah", 
+    "s::k:d::uh", 
     [
         "servers::",
         "key:",
         "driver::",
-        "as-is",
+        "unserialize",
         "help"
     ],
 );
 
 if (isset($options['help']) || isset($options['h'])) {
-    echo "memcphget [-s|--servers] <-k|--key> [-a|--as-is] [-d|--driver] [-h|--help]";
+    echo "memcphget [-s|--servers] <-k|--key> [-u|--unserialize] [-d|--driver] [-h|--help]";
     exit;
-} 
+}
 
 $serverString = $options['servers'] ?? $options['s'] ?? getenv('MEMCACHED_SERVERS') ?: 'localhost';
 $key = $options['key'] ?? $options['k'] ?? null;
-$asIs = $options['as-is'] ?? $options['a'] ?? true;
+$unserialize = isset($options['unserialize']) || isset($options['u']);
 $driver = $options['driver'] ?? $options['d'] ?? 'memcache';
 
 $hostPortPairs = array_map('trim', explode(',', $serverString));
@@ -47,13 +47,13 @@ if ($driver === 'memcache') {
 
 $v = $m->get($key);
 
-if ($asIs) {
+if ($unserialize) {
+    var_export(unserialize($v));
+} else {
     if (is_string($v)) {
         echo $v;
     } else {
         var_export($v);
     }
-} else {
-    var_export($v);
 }
 
