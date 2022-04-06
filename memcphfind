@@ -2,13 +2,14 @@
 <?php
 
 $options = getopt(
-    "s::k::v::ad::h", 
+    "s::k::v::ad::hd", 
     [
         "servers::",
         "keys-only::",
         "key-pattern::",
         "value-pattern::",
         "active-only",
+        "dump",
         "driver::",
         "help"
     ],
@@ -25,8 +26,13 @@ $valuePattern = $options['value-pattern'] ?? $options['v'] ?? null;
 $activeOnly = isset($options['active-only']) || isset($options['a']);
 $driver = $options['driver'] ?? $options['d'] ?? 'memcache';
 $keysOnly = isset($options['keys-only']);
+$withValue = isset($options['dump']) || isset($options['d']);
 
-foreach (getKeys($serverString, $activeOnly, $keyPattern, $valuePattern, $keysOnly, $driver) as $key) {
+if ($withValue && $keysOnly) {
+    die('Define one of --keys-only or --dump');
+}
+
+foreach (getKeys($serverString, $activeOnly, $keyPattern, $valuePattern, $keysOnly, $withValue, $driver) as $key) {
     echo $key  . PHP_EOL;
 }
 
@@ -46,7 +52,7 @@ function connect(string $serverString, string $memcacheClass)
     $client = new $memcacheClass();
 
     foreach ($hostPortPairs as $hostPortPair) {
-        $client->addServer($hostPortPair['host'], $hostPortPair['port'], true, 1, 5);
+        $client->addServer($hostPortPair['host'], $hostPortPair['port']);
     }
 
     return $client;
@@ -58,11 +64,12 @@ function getKeys(
     ?string $keyPattern,
     ?string $valuePattern,
     bool $keysOnly,
+    bool $withValue,
     string $driver
 ): \Generator {
     $keysClient = connect($serverString, Memcache::class);
 
-    if ($valuePattern) {
+    if ($valuePattern || $withValue) {
         if ($driver == 'memcached') {
             $readValueClient = connect($serverString, Memcached::class);
         } else {
@@ -119,9 +126,14 @@ function getKeys(
         // sort by key
         ksort($dump);
     
-        if (isset($keysOnly)) {
+        if ($keysOnly) {
             foreach ($dump as $key => $meta) {
                 yield $key;
+            }
+        } else if ($withValue) {
+            foreach ($dump as $key => $meta) {
+                $value = $readValueClient->get($key);
+                yield sprintf("%s\t%s\t%s\t%s", $meta[0], date('Y-m-d H:i:s', $meta[1]), $key, var_export($value, true));
             }
         } else {
             foreach ($dump as $key => $meta) {
