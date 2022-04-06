@@ -24,8 +24,9 @@ $keyPattern = $options['key-pattern'] ?? $options['k'] ?? null;
 $valuePattern = $options['value-pattern'] ?? $options['v'] ?? null;
 $activeOnly = isset($options['active-only']) || isset($options['a']);
 $driver = $options['driver'] ?? $options['d'] ?? 'memcache';
+$keysOnly = isset($options['keys-only']);
 
-foreach (getKeys($serverString, $activeOnly, $keyPattern, $valuePattern, $driver) as $key) {
+foreach (getKeys($serverString, $activeOnly, $keyPattern, $valuePattern, $keysOnly, $driver) as $key) {
     echo $key  . PHP_EOL;
 }
 
@@ -56,6 +57,7 @@ function getKeys(
     bool $activeOnly, 
     ?string $keyPattern,
     ?string $valuePattern,
+    bool $keysOnly,
     string $driver
 ): \Generator {
     $keysClient = connect($serverString, Memcache::class);
@@ -89,8 +91,6 @@ function getKeys(
             );
         }
     
-        $keys = array_keys($dump);
-    
         if ($keyPattern) {
             $dump = array_filter(
                 $dump, 
@@ -119,7 +119,7 @@ function getKeys(
         // sort by key
         ksort($dump);
     
-        if (isset($options['keys-only'])) {
+        if (isset($keysOnly)) {
             foreach ($dump as $key => $meta) {
                 yield $key;
             }
