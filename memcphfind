@@ -2,7 +2,7 @@
 <?php
 
 $options = getopt(
-    "s::k::v::ad::hd", 
+    "s::k::v::ad::h", 
     [
         "servers::",
         "keys-only::",
@@ -16,7 +16,7 @@ $options = getopt(
 );
 
 if (isset($options['help']) || isset($options['h'])) {
-    echo "memcphfind [-s|--servers] [-k|--key-pattern] [-v|--value-pattern] [--keys-only] [-a|--active-only] [-d|--driver] [-h|--help]";
+    echo "memcphfind [-s|--servers] [-k|--key-pattern] [-v|--value-pattern] [--keys-only] [-a|--active-only] [--dump] [-d|--driver] [-h|--help]";
     exit;
 } 
 
@@ -26,7 +26,7 @@ $valuePattern = $options['value-pattern'] ?? $options['v'] ?? null;
 $activeOnly = isset($options['active-only']) || isset($options['a']);
 $driver = $options['driver'] ?? $options['d'] ?? 'memcache';
 $keysOnly = isset($options['keys-only']);
-$withValue = isset($options['dump']) || isset($options['d']);
+$withValue = isset($options['dump']);
 
 if ($withValue && $keysOnly) {
     die('Define one of --keys-only or --dump');
@@ -133,11 +133,23 @@ function getKeys(
         } else if ($withValue) {
             foreach ($dump as $key => $meta) {
                 $value = $readValueClient->get($key);
-                yield sprintf("%s\t%s\t%s\t%s", $meta[0], date('Y-m-d H:i:s', $meta[1]), $key, var_export($value, true));
+                yield sprintf(
+                    "%s\t%s\t%s\t%s", 
+                    $meta[0], 
+                    date('Y-m-d H:i:s', 
+                    $meta[1]), 
+                    $key, 
+                    var_export($value, true)
+                );
             }
         } else {
             foreach ($dump as $key => $meta) {
-                yield sprintf("%s\t%s\t%s", $meta[0], date('Y-m-d H:i:s', $meta[1]), $key);
+                yield sprintf(
+                    "%s\t%s\t%s", 
+                    $meta[0],
+                    ($meta[1] > 30*24*60*60) ? date('Y-m-d H:i:s', $meta[1]) : $meta[1], 
+                    $key
+                );
             }
         }
     }

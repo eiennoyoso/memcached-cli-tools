@@ -2,9 +2,10 @@
 <?php
 
 $options = getopt(
-    "s::k:v:h", 
+    "s::k:v:hd", 
     [
         "servers::",
+        "driver::",
         "key:",
         "value:",
         "help"
@@ -19,6 +20,7 @@ if (isset($options['help']) || isset($options['h'])) {
 $serverString = $options['servers'] ?? $options['s'] ?? getenv('MEMCACHED_SERVERS') ?: 'localhost';
 $key = $options['key'] ?? $options['k'] ?? null;
 $value = $options['value'] ?? $options['v'] ?? true;
+$driver = $options['driver'] ?? $options['d'] ?? 'memcache';
 
 $hostPortPairs = array_map('trim', explode(',', $serverString));
 foreach ($hostPortPairs as $i => $hostPortPair) {

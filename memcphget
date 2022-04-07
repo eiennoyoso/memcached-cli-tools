@@ -2,24 +2,26 @@
 <?php
 
 $options = getopt(
-    "s::k:d::uh", 
+    "s::k:d::uhj", 
     [
         "servers::",
         "key:",
         "driver::",
         "unserialize",
+        "json",
         "help"
     ],
 );
 
 if (isset($options['help']) || isset($options['h'])) {
-    echo "memcphget [-s|--servers] <-k|--key> [-u|--unserialize] [-d|--driver] [-h|--help]";
+    echo "memcphget [-s|--servers] <-k|--key> [-u|--unserialize] [-j|--json] [-d|--driver] [-h|--help]";
     exit;
 }
 
 $serverString = $options['servers'] ?? $options['s'] ?? getenv('MEMCACHED_SERVERS') ?: 'localhost';
 $key = $options['key'] ?? $options['k'] ?? null;
 $unserialize = isset($options['unserialize']) || isset($options['u']);
+$json = isset($options['json']) || isset($options['j']);
 $driver = $options['driver'] ?? $options['d'] ?? 'memcache';
 
 $hostPortPairs = array_map('trim', explode(',', $serverString));
@@ -49,6 +51,8 @@ $v = $m->get($key);
 
 if ($unserialize) {
     var_export(unserialize($v));
+} else if ($json) {
+    var_export(json_decode($v));
 } else {
     if (is_string($v)) {
         echo $v;
