@@ -2,7 +2,7 @@
 <?php
 
 $options = getopt(
-    "s::k:v:hd", 
+    "s::k:v:d::h", 
     [
         "servers::",
         "driver::",
@@ -13,7 +13,7 @@ $options = getopt(
 );
 
 if (isset($options['help']) || isset($options['h'])) {
-    echo "memcphget [-s|--servers] <-k|--key> <-v|--value> [-h|--help]";
+    echo "memcphset [-s|--servers] <-k|--key> <-v|--value> [-h|--help]";
     exit;
 } 
 
@@ -39,7 +39,11 @@ if ($driver === 'memcache') {
 }
 
 foreach ($hostPortPairs as $hostPortPair) {
-    $m->addServer($hostPortPair['host'], $hostPortPair['port'], true, 1, 5);
+    $m->addServer($hostPortPair['host'], $hostPortPair['port']);
 }
 
-var_dump($m->set($key, $value));
+if ($m->set($key, $value)) {
+    exit(0);
+} else {
+    exit(1);
+}
