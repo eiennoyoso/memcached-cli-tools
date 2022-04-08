@@ -33,9 +33,9 @@ foreach ($hostPortPairs as $i => $hostPortPair) {
 }
 
 
-$m = new Memcache();
+$m = new Memcached();
 foreach ($hostPortPairs as $hostPortPair) {
-    $m->addServer($hostPortPair['host'], $hostPortPair['port'], true, 1, 5);
+    $m->addServer($hostPortPair['host'], $hostPortPair['port']);
 }
 
-$m->delete($key);
+var_dump($m->delete($key));

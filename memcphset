@@ -2,25 +2,32 @@
 <?php
 
 $options = getopt(
-    "s::k:v:d::h", 
+    "s::k:v::d::gh", 
     [
         "servers::",
         "driver::",
         "key:",
-        "value:",
+        "value::",
+        "gzip",
         "help"
     ],
 );
 
 if (isset($options['help']) || isset($options['h'])) {
-    echo "memcphset [-s|--servers] <-k|--key> <-v|--value> [-h|--help]";
+    echo "memcphset [-s|--servers] <-k|--key> <-v|--value> [-h|--help]\n\n";
+    echo "If value not specified, it reads from stdin";
     exit;
 } 
 
 $serverString = $options['servers'] ?? $options['s'] ?? getenv('MEMCACHED_SERVERS') ?: 'localhost';
 $key = $options['key'] ?? $options['k'] ?? null;
-$value = $options['value'] ?? $options['v'] ?? true;
+$value = $options['value'] ?? $options['v'] ?? stream_get_contents(STDIN);
 $driver = $options['driver'] ?? $options['d'] ?? 'memcache';
+$gzip = isset($options['gzip']) || isset($options['g']);
+
+if (empty($value)) {
+    die('Value not specified');
+}
 
 $hostPortPairs = array_map('trim', explode(',', $serverString));
 foreach ($hostPortPairs as $i => $hostPortPair) {
@@ -40,6 +47,10 @@ if ($driver === 'memcache') {
 
 foreach ($hostPortPairs as $hostPortPair) {
     $m->addServer($hostPortPair['host'], $hostPortPair['port']);
+}
+
+if ($gzip) {
+    $value = gzencode($value);
 }
 
 if ($m->set($key, $value)) {
