@@ -24,6 +24,7 @@ $options = getopt(
         "mode::",
         "value::",
         "probability::",
+        "silent",
         "help"
     ],
 );
@@ -41,6 +42,7 @@ $keyPattern = $options['key-pattern'] ?? $options['k'] ?? null;
 $mode = $options['mode'] ?? $options['m'] ?? MODE_REPLACE;
 $value = $options['value'] ?? $options['v'] ?? 1;
 $probability = (int)($options['probability'] ?? $options['p'] ?? 100);
+$silent = isset($options['silent']);
 
 if (!in_array($mode, [MODE_DELETE, MODE_REPLACE])) {
     die('Invalid mode. Allowed modes: ' . MODE_REPLACE . ', ' . MODE_DELETE);
@@ -65,6 +67,10 @@ foreach (getClients($serverString) as $client) {
                 $client->delete($key);
             } else if ($mode === MODE_REPLACE) {
                 $client->set($key, $value);
+            }
+
+            if (!$silent) {
+                echo ".";
             }
         }
     }
