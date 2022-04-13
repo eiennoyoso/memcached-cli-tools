@@ -67,3 +67,4 @@ if ($unserialize) {
     }
 }
 
+echo PHP_EOL;

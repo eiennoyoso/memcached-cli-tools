@@ -123,9 +123,6 @@ function getKeys(
             );
         }
     
-        // sort by key
-        ksort($dump);
-    
         if ($keysOnly) {
             foreach ($dump as $key => $meta) {
                 yield $key;

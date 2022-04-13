@@ -1,0 +1,118 @@
+#!/usr/bin/env php
+<?php
+
+/**
+ * Tool checks that application may work stable with complete
+ * flush of random parts of data or unexpected data
+ */
+
+/**
+ * Delete keys from cashe
+ */
+const MODE_DELETE = 'delete';
+
+/**
+ * Replace cache with data
+ */
+const MODE_REPLACE = 'replace';
+
+$options = getopt(
+    "s::k::m::v::h",
+    [
+        "servers::",
+        "key-pattern::",
+        "mode::",
+        "value::",
+        "help"
+    ],
+);
+
+if (isset($options['help']) || isset($options['h'])) {
+    echo "memchaos [-s|--servers] [-k|--key-pattern] [-m|--mode=replace] [-v|--value=1] [-h|--help]\n";
+    echo 'Allowed modes: ' . MODE_REPLACE . ', ' . MODE_DELETE . PHP_EOL;
+    echo "If -mode=replace passed, than all keys replaced by some value defined in [-v|--value] or '1' if not defined \n";
+    exit;
+}
+
+$serverString = $options['servers'] ?? $options['s'] ?? getenv('MEMCACHED_SERVERS') ?: 'localhost';
+$keyPattern = $options['key-pattern'] ?? $options['k'] ?? null;
+$mode = $options['mode'] ?? $options['m'] ?? MODE_REPLACE;
+$value = $options['value'] ?? $options['v'] ?? 1;
+
+if (!in_array($mode, [MODE_DELETE, MODE_REPLACE])) {
+    die('Invalid mode. Allowed modes: ' . MODE_REPLACE . ', ' . MODE_DELETE);
+}
+
+foreach (getClients($serverString) as $client) {
+    if ($mode === MODE_DELETE && empty($keyPattern)) {
+        $client->flush();
+    } else {
+        foreach (getKeys($client, $keyPattern) as $key) {
+            if ($mode === MODE_DELETE) {
+                $client->delete($key);
+            } else if ($mode === MODE_REPLACE) {
+                $client->set($key, $value);
+            }
+        }
+    }
+}
+
+function getClients(string $serverString): \Generator
+{
+    $hostPortPairs = array_map('trim', explode(',', $serverString));
+    foreach ($hostPortPairs as $i => $hostPortPair) {
+        [$host, $port] = array_map('trim', explode(':', $hostPortPair)) + ['localhost', 11211];
+        if (empty($port)) {
+            $port = 11211;
+        }
+
+        $hostPortPairs[$i] = ['host' => $host, 'port' => $port];
+    }
+
+    foreach ($hostPortPairs as $hostPortPair) {
+        $client = new \Memcache();
+        $client->addServer($hostPortPair['host'], $hostPortPair['port']);
+
+        yield $client;
+    }
+}
+
+function getKeys(
+    \Memcache $client,
+    ?string $keyPattern
+): \Generator {
+    $slabs = $client->getExtendedStats('slabs');
+    if (empty($slabs)) {
+        return;
+    }
+
+    foreach (array_keys(current($client->getExtendedStats('slabs') ?: [])) as $slabId) {
+        $dump = current(@$client->getExtendedStats('cachedump', (int)$slabId, 0) ?: []);
+        if (empty($dump) || !empty($dump['CLIENT_ERROR' . "\0"])) {
+            continue;
+        }
+
+        $time = time();
+        $dump = array_filter(
+            $dump,
+            function (array $meta) use ($time) {
+                return $meta[1] === "0" || (int)($meta[1]) > $time;
+            }
+        );
+
+        if ($keyPattern) {
+            $dump = array_filter(
+                $dump,
+                function($key) use ($keyPattern) {
+                    return mb_strpos($key, $keyPattern) !== false;
+                },
+                ARRAY_FILTER_USE_KEY
+            );
+        }
+
+        foreach ($dump as $key => $meta) {
+            yield $key;
+        }
+    }
+}
+
