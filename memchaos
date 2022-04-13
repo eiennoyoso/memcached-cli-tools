@@ -17,20 +17,22 @@ const MODE_DELETE = 'delete';
 const MODE_REPLACE = 'replace';
 
 $options = getopt(
-    "s::k::m::v::h",
+    "s::k::m::v::p::h",
     [
         "servers::",
         "key-pattern::",
         "mode::",
         "value::",
+        "probability::",
         "help"
     ],
 );
 
 if (isset($options['help']) || isset($options['h'])) {
-    echo "memchaos [-s|--servers] [-k|--key-pattern] [-m|--mode=replace] [-v|--value=1] [-h|--help]\n";
+    echo "memchaos [-s|--servers] [-k|--key-pattern] [-m|--mode=replace] [-v|--value=1] [-p|--probability=100] [-h|--help]\n";
     echo 'Allowed modes: ' . MODE_REPLACE . ', ' . MODE_DELETE . PHP_EOL;
     echo "If -mode=replace passed, than all keys replaced by some value defined in [-v|--value] or '1' if not defined \n";
+    echo "If [-p|--probability] passed then key will be affected only with defined probability\n";
     exit;
 }
 
@@ -38,16 +40,27 @@ $serverString = $options['servers'] ?? $options['s'] ?? getenv('MEMCACHED_SERVER
 $keyPattern = $options['key-pattern'] ?? $options['k'] ?? null;
 $mode = $options['mode'] ?? $options['m'] ?? MODE_REPLACE;
 $value = $options['value'] ?? $options['v'] ?? 1;
+$probability = (int)($options['probability'] ?? $options['p'] ?? 100);
 
 if (!in_array($mode, [MODE_DELETE, MODE_REPLACE])) {
     die('Invalid mode. Allowed modes: ' . MODE_REPLACE . ', ' . MODE_DELETE);
 }
 
+if ($probability < 1 || $probability > 100) {
+    die('Probability must be between 1 and 100');
+}
+
 foreach (getClients($serverString) as $client) {
-    if ($mode === MODE_DELETE && empty($keyPattern)) {
+    if ($mode === MODE_DELETE && empty($keyPattern) && $probability === 100) {
         $client->flush();
     } else {
         foreach (getKeys($client, $keyPattern) as $key) {
+            if ($probability < 100) {
+                if (mt_rand(1, 100) > $probability) {
+                    continue;
+                }
+            }
+
             if ($mode === MODE_DELETE) {
                 $client->delete($key);
             } else if ($mode === MODE_REPLACE) {
