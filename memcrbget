@@ -1,0 +1,21 @@
+#!/usr/bin/env ruby
+
+require 'dalli'
+
+if ARGV[0].nil? or ARGV[1].nil?
+    print "Useage: memcrbget [ip] [key]"
+end
+
+ip = ARGV[0]
+key = ARGV[1]
+
+options = {
+    socket_timeout: 2,
+}
+
+dc = Dalli::Client.new(ip, options)
+
+print dc.get(key);
+
+
+
