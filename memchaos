@@ -17,20 +17,21 @@ const MODE_DELETE = 'delete';
 const MODE_REPLACE = 'replace';
 
 $options = getopt(
-    "s::k::m::v::p::h",
+    "s::k::m::v::p::r::h",
     [
         "servers::",
         "key-pattern::",
         "mode::",
         "value::",
         "probability::",
+        "wait-restore::",
         "silent",
         "help"
     ],
 );
 
 if (isset($options['help']) || isset($options['h'])) {
-    echo "memchaos [-s|--servers] [-k|--key-pattern] [-m|--mode=replace] [-v|--value=1] [-p|--probability=100] [-h|--help]\n";
+    echo "memchaos [-s|--servers] [-k|--key-pattern] [-m|--mode=replace] [-v|--value=1] [-r|--wait-restore] [-p|--probability=100] [-h|--help]\n";
     echo 'Allowed modes: ' . MODE_REPLACE . ', ' . MODE_DELETE . PHP_EOL;
     echo "If -mode=replace passed, than all keys replaced by some value defined in [-v|--value] or '1' if not defined \n";
     echo "If [-p|--probability] passed then key will be affected only with defined probability\n";
@@ -41,6 +42,7 @@ $serverString = $options['servers'] ?? $options['s'] ?? getenv('MEMCACHED_SERVER
 $keyPattern = $options['key-pattern'] ?? $options['k'] ?? null;
 $mode = $options['mode'] ?? $options['m'] ?? MODE_REPLACE;
 $value = $options['value'] ?? $options['v'] ?? 1;
+$waitBeforeRestore = $options['wait-restore'] ?? $options['r'] ?? 0;
 $probability = (int)($options['probability'] ?? $options['p'] ?? 100);
 $silent = isset($options['silent']);
 
@@ -52,6 +54,7 @@ if ($probability < 1 || $probability > 100) {
     die('Probability must be between 1 and 100');
 }
 
+// mutate
 foreach (getClients($serverString) as $client) {
     if ($mode === MODE_DELETE && empty($keyPattern) && $probability === 100) {
         $client->flush();
@@ -73,6 +76,15 @@ foreach (getClients($serverString) as $client) {
                 echo ".";
             }
         }
+    }
+}
+
+// restore
+if ($waitBeforeRestore > 0) {
+    sleep($waitBeforeRestore);
+
+    foreach (getClients($serverString) as $client) {
+        $client->flush();
     }
 }
 
