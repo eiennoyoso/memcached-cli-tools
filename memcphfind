@@ -10,6 +10,7 @@ $options = getopt(
         "value-pattern::",
         "active-only",
         "dump",
+        "dump-dir::",
         "driver::",
         "help"
     ],
@@ -27,12 +28,17 @@ $activeOnly = isset($options['active-only']) || isset($options['a']);
 $driver = $options['driver'] ?? $options['d'] ?? 'memcache';
 $keysOnly = isset($options['keys-only']);
 $withValue = isset($options['dump']);
+$dumpDir = $options['dump-dir'] ?? null;
+
+if (!empty($dumpDir) && !is_dir($dumpDir)) {
+    die('Dump dir invalid');
+}
 
 if ($withValue && $keysOnly) {
     die('Define one of --keys-only or --dump');
 }
 
-foreach (getKeys($serverString, $activeOnly, $keyPattern, $valuePattern, $keysOnly, $withValue, $driver) as $key) {
+foreach (getKeys($serverString, $activeOnly, $keyPattern, $valuePattern, $keysOnly, $withValue, $dumpDir, $driver) as $key) {
     echo $key  . PHP_EOL;
 }
 
@@ -65,11 +71,12 @@ function getKeys(
     ?string $valuePattern,
     bool $keysOnly,
     bool $withValue,
+    ?string $dumpDir,
     string $driver
 ): \Generator {
     $keysClient = connect($serverString, Memcache::class);
 
-    if ($valuePattern || $withValue) {
+    if ($valuePattern || $withValue || $dumpDir) {
         if ($driver == 'memcached') {
             $readValueClient = connect($serverString, Memcached::class);
         } else {
@@ -123,6 +130,19 @@ function getKeys(
             );
         }
     
+        if ($dumpDir) {
+            foreach ($dump as $key => $meta) {
+                $value = $readValueClient->get($key);
+                if (empty($value)) {
+                    continue;
+                }
+                file_put_contents(
+                    $dumpDir . '/' . str_replace('/', '-', $key) . '.json',
+                    json_encode($value)
+                );
+            }
+        }
+
         if ($keysOnly) {
             foreach ($dump as $key => $meta) {
                 yield $key;
