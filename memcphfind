@@ -11,6 +11,7 @@ $options = getopt(
         "active-only",
         "dump",
         "dump-dir::",
+        "min-size::",
         "driver::",
         "help"
     ],
@@ -29,6 +30,7 @@ $driver = $options['driver'] ?? $options['d'] ?? 'memcache';
 $keysOnly = isset($options['keys-only']);
 $withValue = isset($options['dump']);
 $dumpDir = $options['dump-dir'] ?? null;
+$minSize = (int) ($options['min-size'] ?? 0);
 
 if (!empty($dumpDir) && !is_dir($dumpDir)) {
     die('Dump dir invalid');
@@ -38,7 +40,9 @@ if ($withValue && $keysOnly) {
     die('Define one of --keys-only or --dump');
 }
 
-foreach (getKeys($serverString, $activeOnly, $keyPattern, $valuePattern, $keysOnly, $withValue, $dumpDir, $driver) as $key) {
+$keys = getKeys($serverString, $activeOnly, $keyPattern, $valuePattern, $keysOnly, $withValue, $dumpDir, $driver, $minSize);
+
+foreach ($keys as $key) {
     echo $key  . PHP_EOL;
 }
 
@@ -72,11 +76,12 @@ function getKeys(
     bool $keysOnly,
     bool $withValue,
     ?string $dumpDir,
-    string $driver
+    string $driver,
+    int $minSize
 ): \Generator {
     $keysClient = connect($serverString, Memcache::class);
 
-    if ($valuePattern || $withValue || $dumpDir) {
+    if ($valuePattern || $withValue || $dumpDir || $minSize) {
         if ($driver == 'memcached') {
             $readValueClient = connect($serverString, Memcached::class);
         } else {
@@ -94,80 +99,68 @@ function getKeys(
         if (empty($dump) || !empty($dump['CLIENT_ERROR' . "\0"])) {
             continue;
         }
-    
-        if ($activeOnly) {
-            $time = time();
-            $dump = array_filter(
-                $dump, 
-                function (array $meta) use ($time) {
-                    return $meta[1] === "0" || (int)($meta[1]) > $time;
-                }
-            );
-        }
-    
-        if ($keyPattern) {
-            $dump = array_filter(
-                $dump, 
-                function($key) use ($keyPattern) {
-                    return mb_strpos($key, $keyPattern) !== false;
-                },
-                ARRAY_FILTER_USE_KEY
-            );
-        }
-    
-        if ($valuePattern) {
-            $dump = array_filter(
-                $dump, 
-                function($key) use ($readValueClient, $valuePattern) {
-                    $value = @$readValueClient->get($key);
-                    if (empty($value)) {
-                        return false;
-                    }
-    
-                    return mb_strpos(json_encode($value), $valuePattern) !== false;
-                },
-                ARRAY_FILTER_USE_KEY
-            );
-        }
-    
-        if ($dumpDir) {
-            foreach ($dump as $key => $meta) {
-                $value = $readValueClient->get($key);
-                if (empty($value)) {
-                    continue;
-                }
+
+        $time = time();
+        foreach ($dump as $key => $meta) {
+            $expireDate = (int) $meta[1];
+            $isActive = $expireDate === 0 || $expireDate > $time;
+            $size = (int) $meta[0];
+
+            if ($activeOnly && !$isActive) {
+                unset($dump[$key]);
+                continue;
+            }
+
+            if ($keyPattern && mb_strpos($key, $keyPattern) === false) {
+                unset($dump[$key]);
+                continue;
+            }
+
+            if ($minSize > 0 && $size < $minSize) {
+                unset($dump[$key]);
+                continue;
+            }
+
+            if ($valuePattern || $withValue || $dumpDir) {
+                $value = @$readValueClient->get($key);
+                $jsonValue = json_encode($value);
+            }
+
+            if ($valuePattern && mb_strpos($jsonValue, $valuePattern) === false) {
+                unset($dump[$key]);
+                continue;
+            }
+
+            // dump to file
+            if ($dumpDir && !empty($value)) {
                 file_put_contents(
                     $dumpDir . '/' . str_replace('/', '-', $key) . '.json',
                     json_encode($value)
                 );
             }
-        }
 
-        if ($keysOnly) {
-            foreach ($dump as $key => $meta) {
+            // yield string for render
+            if ($keysOnly) {
                 yield $key;
-            }
-        } else if ($withValue) {
-            foreach ($dump as $key => $meta) {
-                $value = $readValueClient->get($key);
+            } else if ($withValue) {
                 yield sprintf(
-                    "%s\t%s\t%s\t%s", 
-                    $meta[0], 
-                    date('Y-m-d H:i:s', 
-                    $meta[1]), 
-                    $key, 
+                    "%s\t%s\t%s\t%s",
+                    $meta[0],
+                    date('Y-m-d H:i:s',
+                    $meta[1]),
+                    $key,
                     var_export($value, true)
                 );
-            }
-        } else {
-            foreach ($dump as $key => $meta) {
+            } else {
                 yield sprintf(
-                    "%s\t%s\t%s", 
+                    "%s\t%s\t%s",
                     $meta[0],
-                    ($meta[1] > 30*24*60*60) ? date('Y-m-d H:i:s', $meta[1]) : $meta[1], 
+                    ($meta[1] > 30*24*60*60) ? date('Y-m-d H:i:s', $meta[1]) : $meta[1],
                     $key
                 );
             }
+
+            unset($dump[$key]);
         }
     }
 }
