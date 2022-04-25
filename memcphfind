@@ -18,7 +18,7 @@ $options = getopt(
 );
 
 if (isset($options['help']) || isset($options['h'])) {
-    echo "memcphfind [-s|--servers] [-k|--key-pattern] [-v|--value-pattern] [--keys-only] [-a|--active-only] [--dump] [-d|--driver] [-h|--help]";
+    echo "memcphfind [-s|--servers] [-k|--key-pattern] [-v|--value-pattern] [--keys-only] [-a|--active-only] [--dump] [--dump-dir] [-min-size] [-d|--driver] [-h|--help]";
     exit;
 } 
 
