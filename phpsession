@@ -29,7 +29,7 @@ if (empty($input)) {
     exit;
 }
 
-var_dump(
+var_export(
     Session::unserialize(trim(trim($input), "'"), (bool) ($argv[1] ?? false))
 );
 
