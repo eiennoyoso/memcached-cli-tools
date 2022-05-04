@@ -155,7 +155,7 @@ function getKeys(
 
             // dump to file
             if ($dumpDir && !empty($value)) {
-                if ($dumpUnserialize) {
+                if ($dumpUnserialize && is_string($value)) {
                     $value = unserialize($value);
                     $dumpJSON = true;
                 }
