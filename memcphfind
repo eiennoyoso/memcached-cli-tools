@@ -12,6 +12,7 @@ $options = getopt(
         "dump",
         "dump-dir::",
         "dump-json::",
+        "dump-unserialize::",
         "min-size::",
         "driver::",
         "help"
@@ -19,7 +20,7 @@ $options = getopt(
 );
 
 if (isset($options['help']) || isset($options['h'])) {
-    echo "memcphfind [-s|--servers] [-k|--key-pattern] [-v|--value-pattern] [--keys-only] [-a|--active-only] [--dump] [--dump-dir] [-min-size] [-d|--driver] [-h|--help]";
+    echo "memcphfind [-s|--servers] [-k|--key-pattern] [-v|--value-pattern] [--keys-only] [-a|--active-only] [--dump] [--dump-dir] [--dump-json] [--dump-unserialize] [-min-size] [-d|--driver] [-h|--help]";
     exit;
 } 
 
@@ -32,6 +33,7 @@ $keysOnly = isset($options['keys-only']);
 $withValue = isset($options['dump']);
 $dumpDir = $options['dump-dir'] ?? null;
 $dumpJSON = isset($options['dump-json']);
+$dumpUnserialize = isset($options['dump-unserialize']);
 $minSize = (int) ($options['min-size'] ?? 0);
 
 if (!empty($dumpDir) && !is_dir($dumpDir)) {
@@ -46,7 +48,19 @@ if ($dumpJSON && !$dumpDir) {
     die('--dump-json must be defined only with --dump-dir');
 }
 
-$keys = getKeys($serverString, $activeOnly, $keyPattern, $valuePattern, $keysOnly, $withValue, $dumpDir, $dumpJSON, $driver, $minSize);
+$keys = getKeys(
+    $serverString,
+    $activeOnly,
+    $keyPattern,
+    $valuePattern,
+    $keysOnly,
+    $withValue,
+    $dumpDir,
+    $dumpJSON,
+    $dumpUnserialize,
+    $driver,
+    $minSize
+);
 
 foreach ($keys as $key) {
     echo $key  . PHP_EOL;
@@ -83,6 +97,7 @@ function getKeys(
     bool $withValue,
     ?string $dumpDir,
     bool $dumpJSON,
+    bool $dumpUnserialize,
     string $driver,
     int $minSize
 ): \Generator {
@@ -140,6 +155,11 @@ function getKeys(
 
             // dump to file
             if ($dumpDir && !empty($value)) {
+                if ($dumpUnserialize) {
+                    $value = unserialize($value);
+                    $dumpJSON = true;
+                }
+
                 if ($dumpJSON) {
                     file_put_contents(
                         $dumpDir . '/' . str_replace('/', '-', $key) . '.json',
