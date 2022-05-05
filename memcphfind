@@ -157,7 +157,7 @@ function getKeys(
             if ($dumpDir && !empty($value)) {
                 if ($dumpUnserialize && is_string($value)) {
                     $unserializedValue = @unserialize($value);
-                    if (!$unserializedValue) {
+                    if ($unserializedValue) {
                         $dumpJSON = true;
                         $value = $unserializedValue;
                     }
