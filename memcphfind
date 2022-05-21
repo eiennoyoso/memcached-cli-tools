@@ -156,7 +156,7 @@ function getKeys(
                 $jsonValue = json_encode($value);
             }
 
-            if ($valuePattern && mb_strpos($jsonValue, $valuePattern) === false) {
+            if ($valuePattern && mb_strpos(mb_strtolower($jsonValue), mb_strtolower($valuePattern)) === false) {
                 unset($dump[$key]);
                 continue;
             }
