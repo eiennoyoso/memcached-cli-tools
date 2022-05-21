@@ -2,7 +2,7 @@
 <?php
 
 $options = getopt(
-    "s::k::v::ad::h", 
+    "s::k::v::ad::hp",
     [
         "servers::",
         "keys-only::",
@@ -15,12 +15,13 @@ $options = getopt(
         "dump-unserialize::",
         "min-size::",
         "driver::",
-        "help"
+        "help",
+        "progress"
     ],
 );
 
 if (isset($options['help']) || isset($options['h'])) {
-    echo "memcphfind [-s|--servers] [-k|--key-pattern] [-v|--value-pattern] [--keys-only] [-a|--active-only] [--dump] [--dump-dir] [--dump-json] [--dump-unserialize] [-min-size] [-d|--driver] [-h|--help]";
+    echo "memcphfind [-s|--servers] [-k|--key-pattern] [-v|--value-pattern] [--keys-only] [-a|--active-only] [--dump] [--dump-dir] [--dump-json] [--dump-unserialize] [--min-size] [-d|--driver] [-p|--progress] [-h|--help]";
     exit;
 } 
 
@@ -28,6 +29,7 @@ $serverString = $options['servers'] ?? $options['s'] ?? getenv('MEMCACHED_SERVER
 $keyPattern = $options['key-pattern'] ?? $options['k'] ?? null;
 $valuePattern = $options['value-pattern'] ?? $options['v'] ?? null;
 $activeOnly = isset($options['active-only']) || isset($options['a']);
+$progress = isset($options['progress']) || isset($options['p']);
 $driver = $options['driver'] ?? $options['d'] ?? 'memcache';
 $keysOnly = isset($options['keys-only']);
 $withValue = isset($options['dump']);
@@ -59,6 +61,7 @@ $keys = getKeys(
     $dumpJSON,
     $dumpUnserialize,
     $driver,
+    $progress,
     $minSize
 );
 
@@ -99,6 +102,7 @@ function getKeys(
     bool $dumpJSON,
     bool $dumpUnserialize,
     string $driver,
+    bool $progress,
     int $minSize
 ): \Generator {
     $keysClient = connect($serverString, Memcache::class);
@@ -124,6 +128,10 @@ function getKeys(
 
         $time = time();
         foreach ($dump as $key => $meta) {
+            if (empty($progress)) {
+                echo ".";
+            }
+
             $expireDate = (int) $meta[1];
             $isActive = $expireDate === 0 || $expireDate > $time;
             $size = (int) $meta[0];
