@@ -128,7 +128,7 @@ function getKeys(
 
         $time = time();
         foreach ($dump as $key => $meta) {
-            if (empty($progress)) {
+            if (!empty($progress)) {
                 echo ".";
             }
 
